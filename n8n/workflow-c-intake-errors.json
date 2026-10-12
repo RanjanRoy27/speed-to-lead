@@ -1,0 +1,97 @@
+﻿{
+    "name":  "Speed-to-Lead C - Central workflow errors",
+    "nodes":  [
+                  {
+                      "parameters":  {
+
+                                     },
+                      "id":  "c-error-trigger",
+                      "name":  "Error Trigger",
+                      "type":  "n8n-nodes-base.errorTrigger",
+                      "typeVersion":  1,
+                      "position":  [
+                                       240,
+                                       300
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "executeQuery",
+                                         "query":  "INSERT INTO events (workflow,step,status,error,detail,n8n_execution_id) VALUES (\u0027error\u0027,\u0027workflow_error\u0027,\u0027fail\u0027,$1,jsonb_build_object(\u0027workflow\u0027,$2,\u0027node\u0027,$3,\u0027execution_url\u0027,$4),$5);",
+                                         "options":  {
+                                                         "queryReplacement":  "={{ $json.execution?.error?.message ?? \u0027Unknown workflow error\u0027 }},={{ $json.workflow?.name ?? \u0027unknown\u0027 }},={{ $json.execution?.lastNodeExecuted ?? \u0027unknown\u0027 }},={{ $json.execution?.url ?? null }},={{ String($json.execution?.id ?? \u0027\u0027) }}"
+                                                     }
+                                     },
+                      "id":  "c-postgres",
+                      "name":  "Record workflow error",
+                      "type":  "n8n-nodes-base.postgres",
+                      "typeVersion":  2.6,
+                      "position":  [
+                                       480,
+                                       300
+                                   ],
+                      "credentials":  {
+                                          "postgres":  {
+                                                           "name":  "SELECT YOUR SUPABASE POSTGRES CREDENTIAL"
+                                                       }
+                                      }
+                  },
+                  {
+                      "parameters":  {
+                                         "chatId":  "REPLACE_WITH_TELEGRAM_CHAT_ID",
+                                         "text":  "=Speed-to-Lead workflow error`nWorkflow: {{ $(\"Error Trigger\").first().json.workflow?.name ?? \"unknown\" }}`nNode: {{ $(\"Error Trigger\").first().json.execution?.lastNodeExecuted ?? \"unknown\" }}`nError: {{ $(\"Error Trigger\").first().json.execution?.error?.message ?? \"See n8n execution\" }}`nExecution: {{ $(\"Error Trigger\").first().json.execution?.url ?? \"open n8n Executions\" }}",
+                                         "additionalFields":  {
+
+                                                              }
+                                     },
+                      "id":  "c-telegram",
+                      "name":  "Telegram alert (configure credential)",
+                      "type":  "n8n-nodes-base.telegram",
+                      "typeVersion":  1.2,
+                      "position":  [
+                                       720,
+                                       300
+                                   ],
+                      "credentials":  {
+                                          "telegramApi":  {
+                                                              "name":  "SELECT YOUR TELEGRAM CREDENTIAL"
+                                                          }
+                                      }
+                  }
+              ],
+    "connections":  {
+                        "Error Trigger":  {
+                                              "main":  [
+                                                           [
+                                                               {
+                                                                   "node":  "Record workflow error",
+                                                                   "type":  "main",
+                                                                   "index":  0
+                                                               }
+                                                           ]
+                                                       ]
+                                          },
+                        "Record workflow error":  {
+                                                      "main":  [
+                                                                   [
+                                                                       {
+                                                                           "node":  "Telegram alert (configure credential)",
+                                                                           "type":  "main",
+                                                                           "index":  0
+                                                                       }
+                                                                   ]
+                                                               ]
+                                                  }
+                    },
+    "active":  false,
+    "settings":  {
+                     "executionOrder":  "v1"
+                 },
+    "versionId":  "c-v1",
+    "meta":  {
+                 "templateCredsSetupCompleted":  false
+             },
+    "tags":  [
+
+             ]
+}

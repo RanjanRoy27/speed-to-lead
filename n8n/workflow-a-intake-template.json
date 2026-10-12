@@ -1,0 +1,124 @@
+﻿{
+    "name":  "Speed-to-Lead A - Intake to database (v1)",
+    "nodes":  [
+                  {
+                      "parameters":  {
+                                         "httpMethod":  "POST",
+                                         "path":  "speed-to-lead-intake",
+                                         "responseMode":  "responseNode",
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "a-webhook",
+                      "name":  "Intake Webhook",
+                      "type":  "n8n-nodes-base.webhook",
+                      "typeVersion":  2,
+                      "position":  [
+                                       240,
+                                       300
+                                   ],
+                      "webhookId":  "speed-to-lead-intake"
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "const input = $json.body ?? $json;\nconst slug = String(input.client_slug ?? \u0027abc-roofing\u0027).trim();\nconst email = input.email ? String(input.email).trim().toLowerCase() : null;\nconst phone = input.phone ? String(input.phone).trim() : null;\nif (!email \u0026\u0026 !phone) throw new Error(\u0027Provide email or phone\u0027);\nconst urgencyRaw = String(input.urgency ?? \u0027\u0027).trim().toLowerCase();\nconst allowed = [\u0027emergency\u0027,\u0027this_week\u0027,\u0027flexible\u0027,\u0027unknown\u0027];\nconst urgency = allowed.includes(urgencyRaw) ? urgencyRaw : \u0027unknown\u0027;\nconst submission = input.submission_id ? String(input.submission_id).trim() : null;\nconst payload = {...input};\nreturn [{json:{client_slug:slug, source:String(input.source ?? \u0027web_form\u0027), external_id:submission, received_at:new Date().toISOString(), name:input.name ? String(input.name).trim() : null, email, phone, service:input.service ? String(input.service).trim() : null, postcode:input.postcode ? String(input.postcode).trim() : null, urgency, property_type:input.property_type ? String(input.property_type).trim() : null, message:String(input.message ?? \u0027\u0027).slice(0,4000), honeypot:String(input.honeypot ?? \u0027\u0027), is_test:Boolean(input.is_test), test_case_id:input.test_case_id ?? null, raw_payload:JSON.stringify(payload)}}];"
+                                     },
+                      "id":  "a-normalize",
+                      "name":  "Normalize and validate",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       460,
+                                       300
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "executeQuery",
+                                         "query":  "WITH cfg AS (SELECT id, country FROM client_config WHERE slug=$1 AND is_active=true), ins AS (INSERT INTO leads (client_id,source,external_id,raw_payload,is_test,test_case_id,name,email,phone,country,service,postcode,urgency,property_type,t_received) SELECT cfg.id,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,cfg.country,$10,$11,$12,$13,$14::timestamptz FROM cfg ON CONFLICT (client_id,source,external_id) DO NOTHING RETURNING id,client_id), msg AS (INSERT INTO messages (lead_id,direction,channel,author,body,delivery_status) SELECT id,\u0027inbound\u0027,\u0027web_form\u0027,\u0027lead\u0027,$15,\u0027received\u0027 FROM ins RETURNING lead_id), ev AS (INSERT INTO events (lead_id,client_id,workflow,step,status,detail) SELECT id,client_id,\u0027intake\u0027,\u0027lead_inserted\u0027,\u0027ok\u0027,jsonb_build_object(\u0027external_id\u0027,$3) FROM ins RETURNING id) SELECT (SELECT id FROM ins) AS lead_id, (SELECT count(*) FROM ins) AS inserted;",
+                                         "options":  {
+                                                         "queryReplacement":  "={{ $json.client_slug }},={{ $json.source }},={{ $json.external_id }},={{ $json.raw_payload }},={{ $json.is_test }},={{ $json.test_case_id }},={{ $json.name }},={{ $json.email }},={{ $json.phone }},={{ $json.service }},={{ $json.postcode }},={{ $json.urgency }},={{ $json.property_type }},={{ $json.received_at }},={{ $json.message }}"
+                                                     }
+                                     },
+                      "id":  "a-postgres",
+                      "name":  "Insert lead and inbound audit",
+                      "type":  "n8n-nodes-base.postgres",
+                      "typeVersion":  2.6,
+                      "position":  [
+                                       700,
+                                       300
+                                   ],
+                      "credentials":  {
+                                          "postgres":  {
+                                                           "name":  "SELECT YOUR SUPABASE POSTGRES CREDENTIAL"
+                                                       }
+                                      },
+                      "alwaysOutputData":  true
+                  },
+                  {
+                      "parameters":  {
+                                         "respondWith":  "json",
+                                         "responseBody":  "={{ { accepted: true, lead_id: $json.lead_id ?? null, inserted: $json.inserted ?? 0 } }}",
+                                         "options":  {
+                                                         "responseCode":  200
+                                                     }
+                                     },
+                      "id":  "a-response",
+                      "name":  "Acknowledge intake",
+                      "type":  "n8n-nodes-base.respondToWebhook",
+                      "typeVersion":  1.1,
+                      "position":  [
+                                       940,
+                                       300
+                                   ]
+                  }
+              ],
+    "connections":  {
+                        "Intake Webhook":  {
+                                               "main":  [
+                                                            [
+                                                                {
+                                                                    "node":  "Normalize and validate",
+                                                                    "type":  "main",
+                                                                    "index":  0
+                                                                }
+                                                            ]
+                                                        ]
+                                           },
+                        "Normalize and validate":  {
+                                                       "main":  [
+                                                                    [
+                                                                        {
+                                                                            "node":  "Insert lead and inbound audit",
+                                                                            "type":  "main",
+                                                                            "index":  0
+                                                                        }
+                                                                    ]
+                                                                ]
+                                                   },
+                        "Insert lead and inbound audit":  {
+                                                              "main":  [
+                                                                           [
+                                                                               {
+                                                                                   "node":  "Acknowledge intake",
+                                                                                   "type":  "main",
+                                                                                   "index":  0
+                                                                               }
+                                                                           ]
+                                                                       ]
+                                                          }
+                    },
+    "active":  false,
+    "settings":  {
+                     "executionOrder":  "v1",
+                     "saveManualExecutions":  true
+                 },
+    "versionId":  "a-v1",
+    "meta":  {
+                 "templateCredsSetupCompleted":  false
+             },
+    "tags":  [
+
+             ]
+}

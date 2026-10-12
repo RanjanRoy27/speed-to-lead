@@ -1,0 +1,94 @@
+﻿{
+    "name":  "Speed-to-Lead B - Cal.com booking lifecycle (starter)",
+    "nodes":  [
+                  {
+                      "parameters":  {
+                                         "httpMethod":  "POST",
+                                         "path":  "calcom-booking",
+                                         "responseMode":  "onReceived",
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "b-webhook",
+                      "name":  "Cal.com Webhook",
+                      "type":  "n8n-nodes-base.webhook",
+                      "typeVersion":  2,
+                      "position":  [
+                                       240,
+                                       300
+                                   ],
+                      "webhookId":  "calcom-booking"
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "// Confirm these paths against a captured Cal.com webhook before activation.\nconst root=$json.body ?? $json; const p=root.payload ?? root;\nconst event=String(root.triggerEvent ?? root.event ?? \u0027\u0027).toLowerCase();\nconst status=event.includes(\u0027cancel\u0027)?\u0027cancelled\u0027:event.includes(\u0027resched\u0027)?\u0027rescheduled\u0027:\u0027created\u0027;\nconst uid=p.uid ?? p.bookingUid ?? p.id; if(!uid) throw new Error(\u0027Cal.com payload mapping required: booking UID not found\u0027);\nconst email=p.attendees?.[0]?.email ?? p.attendee?.email ?? p.email ?? null;\nconst name=p.attendees?.[0]?.name ?? p.attendee?.name ?? p.name ?? null;\nconst clientSlug=p.metadata?.client_slug ?? p.metadata?.clientSlug ?? \u0027abc-roofing\u0027;\nreturn [{json:{client_slug:clientSlug,provider_booking_uid:String(uid),booking_status:status,start_time:p.startTime ?? p.start_time ?? null,end_time:p.endTime ?? p.end_time ?? null,attendee_email:email?String(email).trim().toLowerCase():null,attendee_name:name,event_type:p.eventTitle ?? p.eventType?.title ?? null,raw_payload:JSON.stringify(root)}}];"
+                                     },
+                      "id":  "b-map",
+                      "name":  "Map captured Cal.com payload",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       470,
+                                       300
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "executeQuery",
+                                         "query":  "WITH cfg AS (SELECT id FROM client_config WHERE slug=$1 AND is_active=true), match_lead AS (SELECT l.id,l.client_id FROM leads l JOIN cfg c ON c.id=l.client_id WHERE $6::text IS NOT NULL AND lower(l.email)=lower($6) AND l.status IN (\u0027replied\u0027,\u0027booked\u0027) ORDER BY l.t_received DESC LIMIT 1), saved AS (INSERT INTO bookings (lead_id,client_id,provider,provider_booking_uid,status,start_time,end_time,attendee_email,attendee_name,event_type,matched_by,payload) SELECT m.id,c.id,\u0027calcom\u0027,$2,$3,$4::timestamptz,$5::timestamptz,$6,$7,$8,CASE WHEN m.id IS NOT NULL THEN \u0027email\u0027 END,$9::jsonb FROM cfg c LEFT JOIN match_lead m ON true ON CONFLICT (provider,provider_booking_uid) DO UPDATE SET lead_id=EXCLUDED.lead_id,status=EXCLUDED.status,start_time=EXCLUDED.start_time,end_time=EXCLUDED.end_time,attendee_email=EXCLUDED.attendee_email,attendee_name=EXCLUDED.attendee_name,event_type=EXCLUDED.event_type,payload=EXCLUDED.payload RETURNING id,lead_id,client_id,status), lead_update AS (UPDATE leads l SET status=CASE WHEN s.status=\u0027cancelled\u0027 THEN \u0027replied\u0027 WHEN s.status IN (\u0027created\u0027,\u0027rescheduled\u0027) THEN \u0027booked\u0027 ELSE l.status END,t_booked=CASE WHEN s.status IN (\u0027created\u0027,\u0027rescheduled\u0027) THEN COALESCE(l.t_booked,now()) WHEN s.status=\u0027cancelled\u0027 AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.lead_id=l.id AND b.status IN (\u0027created\u0027,\u0027rescheduled\u0027)) THEN NULL ELSE l.t_booked END FROM saved s WHERE l.id=s.lead_id RETURNING l.id), event_log AS (INSERT INTO events (lead_id,client_id,workflow,step,status,detail) SELECT s.lead_id,s.client_id,\u0027booking\u0027,CASE WHEN s.lead_id IS NULL THEN \u0027booking_unmatched\u0027 ELSE \u0027booking_saved\u0027 END,CASE WHEN s.lead_id IS NULL THEN \u0027warn\u0027 ELSE \u0027ok\u0027 END,jsonb_build_object(\u0027provider_booking_uid\u0027,$2,\u0027status\u0027,s.status) FROM saved s RETURNING id) SELECT (SELECT id FROM saved) AS booking_id,(SELECT lead_id FROM saved) AS lead_id;",
+                                         "options":  {
+                                                         "queryReplacement":  "={{ $json.client_slug }},={{ $json.provider_booking_uid }},={{ $json.booking_status }},={{ $json.start_time }},={{ $json.end_time }},={{ $json.attendee_email }},={{ $json.attendee_name }},={{ $json.event_type }},={{ $json.raw_payload }}"
+                                                     }
+                                     },
+                      "id":  "b-postgres",
+                      "name":  "Upsert booking and update lead",
+                      "type":  "n8n-nodes-base.postgres",
+                      "typeVersion":  2.6,
+                      "position":  [
+                                       710,
+                                       300
+                                   ],
+                      "credentials":  {
+                                          "postgres":  {
+                                                           "name":  "SELECT YOUR SUPABASE POSTGRES CREDENTIAL"
+                                                       }
+                                      }
+                  }
+              ],
+    "connections":  {
+                        "Cal.com Webhook":  {
+                                                "main":  [
+                                                             [
+                                                                 {
+                                                                     "node":  "Map captured Cal.com payload",
+                                                                     "type":  "main",
+                                                                     "index":  0
+                                                                 }
+                                                             ]
+                                                         ]
+                                            },
+                        "Map captured Cal.com payload":  {
+                                                             "main":  [
+                                                                          [
+                                                                              {
+                                                                                  "node":  "Upsert booking and update lead",
+                                                                                  "type":  "main",
+                                                                                  "index":  0
+                                                                              }
+                                                                          ]
+                                                                      ]
+                                                         }
+                    },
+    "active":  false,
+    "settings":  {
+                     "executionOrder":  "v1"
+                 },
+    "versionId":  "b-v1",
+    "meta":  {
+                 "templateCredsSetupCompleted":  false
+             },
+    "tags":  [
+
+             ]
+}
