@@ -1,0 +1,412 @@
+﻿{
+    "name":  "Speed-to-Lead A - Public form and template reply (demo v2)",
+    "nodes":  [
+                  {
+                      "parameters":  {
+                                         "httpMethod":  "POST",
+                                         "path":  "speed-to-lead-public-v2",
+                                         "responseMode":  "responseNode",
+                                         "options":  {
+                                                         "allowedOrigins":  "http://localhost:8000"
+                                                     }
+                                     },
+                      "id":  "a2-public-webhook",
+                      "name":  "Public Lead Form Webhook",
+                      "type":  "n8n-nodes-base.webhook",
+                      "typeVersion":  2.1,
+                      "position":  [
+                                       220,
+                                       300
+                                   ],
+                      "webhookId":  "speed-to-lead-public-v2"
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "const body = $json.body ?? $json;\nconst clean = (v, max = 4000) =\u003e { const s = String(v ?? \u0027\u0027).trim(); return s ? s.slice(0, max) : null; };\nconst name = clean(body.name, 160);\nconst email = clean(body.email, 320)?.toLowerCase() ?? null;\nconst emailOk = !!email \u0026\u0026 /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);\nconst service = clean(body.service, 160);\nconst postcode = clean(body.postcode, 32);\nconst urgencyRaw = String(body.urgency ?? \u0027\u0027).trim().toLowerCase();\nconst allowedUrgencies = [\u0027emergency\u0027, \u0027this_week\u0027, \u0027flexible\u0027];\nconst urgency = allowedUrgencies.includes(urgencyRaw) ? urgencyRaw : \u0027unknown\u0027;\nconst submissionId = clean(body.submission_id, 120) || (globalThis.crypto?.randomUUID?.() ?? \u0027xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx\u0027.replace(/[xy]/g, c =\u003e { const r = Math.random() * 16 | 0; return (c === \u0027x\u0027 ? r : (r \u0026 3 | 8)).toString(16); }));\nconst rawPhone = clean(body.phone, 40);\nlet phone = null;\nif (rawPhone) {\n  const digits = rawPhone.replace(/[^0-9+]/g, \u0027\u0027);\n  if (/^\\+61[0-9]{9}$/.test(digits)) phone = digits;\n  else if (/^61[0-9]{9}$/.test(digits)) phone = \u0027+\u0027 + digits;\n  else if (/^0[0-9]{9}$/.test(digits)) phone = \u0027+61\u0027 + digits.slice(1);\n}\nconst propertyType = clean(body.property_type, 100);\nconst message = String(body.message ?? \u0027\u0027).slice(0, 4000);\nconst honeypot = String(body.honeypot ?? \u0027\u0027).slice(0, 500);\nconst consent = body.consent === true || body.consent === \u0027true\u0027;\nconst issues = [];\nif (!name) issues.push(\u0027Enter your name.\u0027);\nif (!emailOk) issues.push(\u0027Enter a valid email address.\u0027);\nif (!service) issues.push(\u0027Choose the work you need.\u0027);\nif (!postcode) issues.push(\u0027Enter your postcode.\u0027);\nif (!allowedUrgencies.includes(urgencyRaw)) issues.push(\u0027Choose when you need help.\u0027);\nif (!consent) issues.push(\u0027Consent is required to process this request.\u0027);\nconst receivedAt = new Date().toISOString();\nconst rawPayload = { name, email, phone: rawPhone, service, postcode, urgency: urgencyRaw, property_type: propertyType, message, honeypot, consent };\nreturn [{ json: { valid: issues.length === 0, validation_error: issues.join(\u0027 \u0027), client_slug: \u0027abc-roofing\u0027, source: \u0027web_form\u0027, external_id: submissionId, received_at: receivedAt, name, email, phone, service, postcode, urgency, property_type: propertyType, message, honeypot, is_test: true, test_case_id: null, raw_payload: JSON.stringify(rawPayload) } }];"
+                                     },
+                      "id":  "a2-normalize",
+                      "name":  "Normalize and validate form",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       440,
+                                       300
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "conditions":  {
+                                                            "options":  {
+                                                                            "caseSensitive":  true,
+                                                                            "leftValue":  "",
+                                                                            "typeValidation":  "strict",
+                                                                            "version":  2
+                                                                        },
+                                                            "conditions":  [
+                                                                               {
+                                                                                   "id":  "a2-valid-flag",
+                                                                                   "leftValue":  "={{ $json.valid }}",
+                                                                                   "rightValue":  true,
+                                                                                   "operator":  {
+                                                                                                    "type":  "boolean",
+                                                                                                    "operation":  "true",
+                                                                                                    "singleValue":  true
+                                                                                                }
+                                                                               }
+                                                                           ],
+                                                            "combinator":  "and"
+                                                        },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "a2-valid-if",
+                      "name":  "Form data valid?",
+                      "type":  "n8n-nodes-base.if",
+                      "typeVersion":  2.2,
+                      "position":  [
+                                       650,
+                                       300
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "respondWith":  "json",
+                                         "responseBody":  "={{ { accepted: false, status: \u0027invalid\u0027, message: $json.validation_error } }}",
+                                         "options":  {
+                                                         "responseCode":  400
+                                                     }
+                                     },
+                      "id":  "a2-invalid-response",
+                      "name":  "Return validation message",
+                      "type":  "n8n-nodes-base.respondToWebhook",
+                      "typeVersion":  1.1,
+                      "position":  [
+                                       870,
+                                       500
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "executeQuery",
+                                         "query":  "WITH input AS (\n  SELECT $1::text AS client_slug, \u0027web_form\u0027::text AS source, $2::text AS external_id, $3::jsonb AS raw_payload, true AS is_test, $4::text AS test_case_id, $5::text AS name, $6::text AS email, $7::text AS phone, $8::text AS service, $9::text AS postcode, $10::text AS urgency, $11::text AS property_type, $12::timestamptz AS t_received, $13::text AS message, $14::text AS honeypot\n), cfg AS (\n  SELECT c.* FROM client_config c JOIN input i ON i.client_slug = c.slug WHERE c.is_active = true\n), ins AS (\n  INSERT INTO leads (client_id, source, external_id, raw_payload, is_test, test_case_id, name, email, phone, country, service, postcode, urgency, property_type, t_received)\n  SELECT c.id, i.source, i.external_id, i.raw_payload, i.is_test, i.test_case_id, i.name, i.email, i.phone, c.country, i.service, i.postcode, i.urgency, i.property_type, i.t_received\n  FROM cfg c CROSS JOIN input i\n  ON CONFLICT (client_id, source, external_id) DO NOTHING\n  RETURNING id, client_id\n), inbound AS (\n  INSERT INTO messages (lead_id, direction, channel, author, body, delivery_status, meta)\n  SELECT ins.id, \u0027inbound\u0027, \u0027web_form\u0027, \u0027lead\u0027, i.message, \u0027received\u0027, jsonb_build_object(\u0027submission_id\u0027, i.external_id)\n  FROM ins CROSS JOIN input i\n  RETURNING lead_id\n), webhook_event AS (\n  INSERT INTO events (lead_id, client_id, workflow, step, status, detail)\n  SELECT ins.id, ins.client_id, \u0027intake\u0027, \u0027webhook_received\u0027, \u0027ok\u0027, jsonb_build_object(\u0027source\u0027, \u0027web_form\u0027) FROM ins\n  RETURNING id\n), lead_event AS (\n  INSERT INTO events (lead_id, client_id, workflow, step, status, detail)\n  SELECT ins.id, ins.client_id, \u0027intake\u0027, \u0027lead_inserted\u0027, \u0027ok\u0027, jsonb_build_object(\u0027external_id\u0027, i.external_id) FROM ins CROSS JOIN input i\n  RETURNING id\n), skipped_event AS (\n  INSERT INTO events (lead_id, client_id, workflow, step, status, detail)\n  SELECT NULL, c.id, \u0027intake\u0027, \u0027idempotent_skip\u0027, \u0027skip\u0027, jsonb_build_object(\u0027external_id\u0027, i.external_id)\n  FROM cfg c CROSS JOIN input i WHERE NOT EXISTS (SELECT 1 FROM ins)\n  RETURNING id\n)\n, resolved AS (\n  SELECT ins.id, ins.client_id, true AS inserted FROM ins\n  UNION ALL\n  SELECT l.id, l.client_id, false AS inserted\n  FROM leads l\n  JOIN cfg c ON c.id = l.client_id\n  CROSS JOIN input i\n  WHERE l.source = i.source AND l.external_id = i.external_id\n    AND NOT EXISTS (SELECT 1 FROM ins)\n)\nSELECT\n  r.id AS lead_id, r.inserted, r.client_id, i.source, i.external_id, i.raw_payload, i.is_test, i.test_case_id,\n  i.name, i.email, i.phone, c.country, i.service, i.postcode, i.urgency, i.property_type,\n  i.t_received, i.message, i.honeypot, c.client_name, c.timezone, c.service_areas,\n  c.required_fields, c.hot_urgencies, c.business_hours, c.booking_url, c.from_name,\n  c.from_email, c.after_hours_note, c.fallback_subject, c.fallback_body, c.reply_signature, c.settings\nFROM input i\nJOIN cfg c ON true\nJOIN resolved r ON true;",
+                                         "options":  {
+                                                         "queryReplacement":  "={{ [$json.client_slug, $json.external_id, $json.raw_payload, $json.test_case_id, $json.name, $json.email, $json.phone, $json.service, $json.postcode, $json.urgency, $json.property_type, $json.received_at, $json.message, $json.honeypot] }}"
+                                                     }
+                                     },
+                      "id":  "a2-insert-lead",
+                      "name":  "Insert lead and inbound audit",
+                      "type":  "n8n-nodes-base.postgres",
+                      "typeVersion":  2.6,
+                      "position":  [
+                                       880,
+                                       280
+                                   ],
+                      "credentials":  {
+                                          "postgres":  {
+                                                           "name":  "SELECT YOUR TESTED POSTGRES CREDENTIAL"
+                                                       }
+                                      },
+                      "alwaysOutputData":  true
+                  },
+                  {
+                      "parameters":  {
+                                         "respondWith":  "json",
+                                         "responseBody":  "={{ { accepted: true, status: $json.inserted ? \u0027received\u0027 : \u0027already_received\u0027, lead_id: $json.lead_id ?? null, message: \u0027Your request has been recorded.\u0027 } }}",
+                                         "options":  {
+                                                         "responseCode":  202
+                                                     }
+                                     },
+                      "id":  "a2-accepted-response",
+                      "name":  "Acknowledge stored request",
+                      "type":  "n8n-nodes-base.respondToWebhook",
+                      "typeVersion":  1.1,
+                      "position":  [
+                                       1110,
+                                       280
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "executeQuery",
+                                         "query":  "WITH ctx AS (\n  SELECT l.*, c.client_name, c.timezone, c.service_areas, c.required_fields, c.hot_urgencies, c.business_hours, c.booking_url, c.from_name, c.from_email, c.owner_email, c.after_hours_note, c.fallback_subject, c.fallback_body, c.reply_signature, c.settings, COALESCE(l.raw_payload-\u003e\u003e\u0027message\u0027, \u0027\u0027) AS lead_message, COALESCE(l.raw_payload-\u003e\u003e\u0027honeypot\u0027, \u0027\u0027) AS honeypot_value\n  FROM leads l JOIN client_config c ON c.id = l.client_id\n  WHERE l.id = $1::uuid AND $2::boolean = true\n), spam_check AS (\n  SELECT x.*, (NULLIF(trim(x.honeypot_value), \u0027\u0027) IS NOT NULL OR (SELECT count(*) FROM regexp_matches(x.lead_message, \u0027https?://\u0027, \u0027gi\u0027)) \u003e 2 OR x.lead_message ~* \u0027\\m(seo|backlink|guest[[:space:]]+post|lead[[:space:]]+generation)\\M\u0027) AS is_spam\n  FROM ctx x\n), dupe AS (\n  SELECT x.*, d.id AS duplicate_lead_id\n  FROM spam_check x LEFT JOIN LATERAL (\n    SELECT l2.id FROM leads l2 WHERE NOT x.is_spam AND l2.client_id = x.client_id AND l2.dedupe_key = x.dedupe_key AND l2.id \u003c\u003e x.id AND l2.status \u003c\u003e \u0027rejected\u0027 AND l2.t_received \u003e= x.t_received - interval \u002724 hours\u0027 AND l2.t_received \u003c= x.t_received ORDER BY l2.t_received DESC LIMIT 1\n  ) d ON true\n), local_clock AS (\n  SELECT d.*, CASE WHEN d.is_test AND d.raw_payload #\u003e\u003e \u0027{_test,clock_local}\u0027 IS NOT NULL THEN (d.raw_payload #\u003e\u003e \u0027{_test,clock_local}\u0027)::timestamp ELSE d.t_received AT TIME ZONE d.timezone END AS local_received\n  FROM dupe d\n), day_clock AS (\n  SELECT x.*, CASE EXTRACT(ISODOW FROM x.local_received)::int WHEN 1 THEN \u0027mon\u0027 WHEN 2 THEN \u0027tue\u0027 WHEN 3 THEN \u0027wed\u0027 WHEN 4 THEN \u0027thu\u0027 WHEN 5 THEN \u0027fri\u0027 WHEN 6 THEN \u0027sat\u0027 ELSE \u0027sun\u0027 END AS day_key,\n    CASE WHEN jsonb_typeof(x.settings-\u003e\u0027demo_recipient_allowlist\u0027) = \u0027array\u0027 THEN EXISTS (SELECT 1 FROM jsonb_array_elements_text(x.settings-\u003e\u0027demo_recipient_allowlist\u0027) allowed(value) WHERE lower(trim(allowed.value)) = lower(x.email)) ELSE false END AS recipient_allowed\n  FROM local_clock x\n), evaluated AS (\n  SELECT x.*,\n    CASE WHEN x.is_spam THEN \u0027spam\u0027 WHEN x.duplicate_lead_id IS NOT NULL THEN \u0027duplicate\u0027 WHEN x.postcode_area IS NOT NULL AND NOT (x.postcode_area = ANY(x.service_areas)) THEN \u0027out_of_area\u0027 WHEN NOT x.recipient_allowed THEN \u0027suppressed\u0027 END AS final_reject_reason,\n    NOT EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(x.business_hours-\u003ex.day_key, \u0027[]\u0027::jsonb)) hours(period) WHERE x.local_received::time \u003e= (hours.period-\u003e\u003e0)::time AND x.local_received::time \u003c (hours.period-\u003e\u003e1)::time) AS after_hours,\n    (SELECT COALESCE(array_agg(r.field ORDER BY r.ordinality), ARRAY[]::text[]) FROM unnest(x.required_fields) WITH ORDINALITY r(field, ordinality) WHERE CASE r.field WHEN \u0027service\u0027 THEN NULLIF(trim(x.service), \u0027\u0027) IS NULL WHEN \u0027postcode\u0027 THEN x.postcode_area IS NULL WHEN \u0027urgency\u0027 THEN x.urgency IS NULL OR x.urgency = \u0027unknown\u0027 WHEN \u0027property_type\u0027 THEN NULLIF(trim(x.property_type), \u0027\u0027) IS NULL WHEN \u0027phone\u0027 THEN x.phone IS NULL ELSE false END) AS missing\n  FROM day_clock x\n), decision AS (\n  SELECT e.*, CASE WHEN e.final_reject_reason IS NOT NULL THEN \u0027COLD\u0027 WHEN cardinality(e.missing) = 0 AND e.urgency = ANY(e.hot_urgencies) THEN \u0027HOT\u0027 ELSE \u0027WARM\u0027 END AS final_score,\n    CASE WHEN e.final_reject_reason IS NOT NULL THEN \u0027rejected:\u0027 || e.final_reject_reason WHEN cardinality(e.missing) \u003e 0 THEN \u0027missing:\u0027 || array_to_string(e.missing, \u0027,\u0027) WHEN e.urgency = ANY(e.hot_urgencies) THEN \u0027in_area+urgent+complete\u0027 ELSE \u0027in_area+complete\u0027 END AS final_score_reason\n  FROM evaluated e\n), update_lead AS (\n  UPDATE leads l SET status = CASE WHEN d.final_reject_reason IS NULL THEN \u0027processing\u0027 ELSE \u0027rejected\u0027 END, reject_reason = d.final_reject_reason, duplicate_of = d.duplicate_lead_id, score = d.final_score, score_reason = d.final_score_reason, missing_fields = CASE WHEN d.final_reject_reason IS NULL THEN d.missing ELSE ARRAY[]::text[] END, is_after_hours = CASE WHEN d.final_reject_reason IS NULL THEN d.after_hours ELSE false END, reply_mode = CASE WHEN d.final_reject_reason IS NULL THEN NULL ELSE \u0027none\u0027 END\n  FROM decision d WHERE l.id = d.id RETURNING l.id, l.status\n), duplicate_message AS (\n  INSERT INTO messages (lead_id, direction, channel, author, body, delivery_status, meta)\n  SELECT d.duplicate_lead_id, \u0027inbound\u0027, \u0027web_form\u0027, \u0027lead\u0027, d.lead_message, \u0027received\u0027, jsonb_build_object(\u0027duplicate_lead_id\u0027, d.id) FROM decision d WHERE d.final_reject_reason = \u0027duplicate\u0027\n  RETURNING lead_id\n), audit AS (\n  INSERT INTO events (lead_id, client_id, workflow, step, status, detail)\n  SELECT d.id, d.client_id, \u0027intake\u0027, e.step, e.event_status, e.detail\n  FROM decision d CROSS JOIN LATERAL (VALUES\n    (1, \u0027guard_spam\u0027::text, CASE WHEN d.is_spam THEN \u0027fail\u0027 ELSE \u0027ok\u0027 END::text, jsonb_build_object(\u0027matched\u0027, d.is_spam, \u0027reason\u0027, CASE WHEN d.is_spam THEN \u0027honeypot_url_or_keyword\u0027 ELSE NULL END), true),\n    (2, \u0027guard_duplicate\u0027::text, CASE WHEN d.duplicate_lead_id IS NOT NULL THEN \u0027warn\u0027 ELSE \u0027ok\u0027 END::text, jsonb_build_object(\u0027duplicate_of\u0027, d.duplicate_lead_id), NOT d.is_spam),\n    (3, \u0027guard_area\u0027::text, CASE WHEN d.postcode_area IS NOT NULL AND NOT (d.postcode_area = ANY(d.service_areas)) THEN \u0027fail\u0027 ELSE \u0027ok\u0027 END::text, jsonb_build_object(\u0027postcode_area\u0027, d.postcode_area), NOT d.is_spam AND d.duplicate_lead_id IS NULL),\n    (4, \u0027guard_hours\u0027::text, \u0027ok\u0027::text, jsonb_build_object(\u0027is_after_hours\u0027, d.after_hours), d.final_reject_reason IS NULL),\n    (5, \u0027scored\u0027::text, \u0027ok\u0027::text, jsonb_build_object(\u0027score\u0027, d.final_score, \u0027score_reason\u0027, d.final_score_reason, \u0027missing_fields\u0027, d.missing), d.final_reject_reason IS NULL),\n    (6, \u0027lead_rejected\u0027::text, \u0027ok\u0027::text, jsonb_build_object(\u0027reject_reason\u0027, d.final_reject_reason), d.final_reject_reason IS NOT NULL)\n  ) AS e(ordinality, step, event_status, detail, should_log)\n  WHERE e.should_log ORDER BY e.ordinality\n)\nSELECT d.id AS lead_id, d.client_id, d.name, d.email, d.phone, d.service, d.postcode, d.postcode_area, d.urgency, d.property_type, d.lead_message AS message, d.score, d.score_reason, d.missing AS missing_fields, d.after_hours AS is_after_hours, d.client_name, d.timezone, d.booking_url, d.from_name, d.from_email, d.after_hours_note, d.fallback_subject, d.fallback_body, d.reply_signature\nFROM decision d JOIN update_lead u ON u.id = d.id WHERE u.status = \u0027processing\u0027;",
+                                         "options":  {
+                                                         "queryReplacement":  "={{ [ $(\u0027Insert lead and inbound audit\u0027).first().json.lead_id, $(\u0027Insert lead and inbound audit\u0027).first().json.inserted ] }}"
+                                                     }
+                                     },
+                      "id":  "a2-guards-and-score",
+                      "name":  "Apply guards and score lead",
+                      "type":  "n8n-nodes-base.postgres",
+                      "typeVersion":  2.6,
+                      "position":  [
+                                       1340,
+                                       280
+                                   ],
+                      "credentials":  {
+                                          "postgres":  {
+                                                           "name":  "SELECT YOUR TESTED POSTGRES CREDENTIAL"
+                                                       }
+                                      },
+                      "alwaysOutputData":  false
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "const x = $json;\nif (!x.booking_url || /replace_me/i.test(x.booking_url)) throw new Error(\u0027Set a real booking URL in client_config before enabling email replies.\u0027);\nconst values = { name: x.name || \u0027there\u0027, service: x.service || \u0027your roofing request\u0027, booking_url: x.booking_url, client_name: x.client_name };\nconst render = (s) =\u003e String(s ?? \u0027\u0027).replace(/{{\\s*(name|service|booking_url|client_name)\\s*}}/g, (_, key) =\u003e values[key]);\nconst subject = render(x.fallback_subject);\nlet body = render(x.fallback_body);\nif (x.is_after_hours \u0026\u0026 x.after_hours_note) body += \u0027\\n\\n\u0027 + x.after_hours_note;\nconst timing = { emergency: \u0027As soon as possible / emergency\u0027, this_week: \u0027This week\u0027, flexible: \u0027Flexible\u0027, unknown: \u0027Not provided\u0027 }[x.urgency] || \u0027Not provided\u0027;\nconst details = [\n  `Name: ${x.name || \u0027Not provided\u0027}`,\n  `Email: ${x.email || \u0027Not provided\u0027}`,\n  `Phone: ${x.phone || \u0027Not provided\u0027}`,\n  `Service: ${x.service || \u0027Not provided\u0027}`,\n  `Postcode: ${x.postcode || \u0027Not provided\u0027}`,\n  `Timing: ${timing}`,\n  `Property type: ${x.property_type || \u0027Not provided\u0027}`,\n  `Message: ${x.message || \u0027Not provided\u0027}`\n].join(\u0027\\n\u0027);\nbody += \u0027\\n\\nYour submitted details:\\n\u0027 + details;\nreturn [{ json: { lead_id: x.lead_id, client_id: x.client_id, to_email: x.email, from_email: x.from_name ? `${x.from_name} \u003c${x.from_email}\u003e` : x.from_email, reply_subject: subject, reply_body: body, reply_mode: \u0027fallback\u0027, score: x.score, is_after_hours: x.is_after_hours } }];"
+                                     },
+                      "id":  "a2-build-reply",
+                      "name":  "Build template reply",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       1570,
+                                       280
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "resource":  "email",
+                                         "operation":  "send",
+                                         "fromEmail":  "={{ $(\u0027Build template reply\u0027).first().json.from_email }}",
+                                         "toEmail":  "={{ $(\u0027Build template reply\u0027).first().json.to_email }}",
+                                         "subject":  "={{ $(\u0027Build template reply\u0027).first().json.reply_subject }}",
+                                         "emailFormat":  "text",
+                                         "text":  "={{ $(\u0027Build template reply\u0027).first().json.reply_body }}",
+                                         "options":  {
+                                                         "appendAttribution":  false
+                                                     }
+                                     },
+                      "id":  "a2-send-email",
+                      "name":  "Send template email",
+                      "type":  "n8n-nodes-base.emailSend",
+                      "typeVersion":  2.1,
+                      "position":  [
+                                       1800,
+                                       280
+                                   ],
+                      "onError":  "continueErrorOutput",
+                      "credentials":  {
+                                          "smtp":  {
+                                                       "name":  "SELECT YOUR TESTED GMAIL SMTP CREDENTIAL"
+                                                   }
+                                      }
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "executeQuery",
+                                         "query":  "WITH args AS (SELECT $1::uuid AS lead_id, $2::text AS subject, $3::text AS body, $4::text AS provider_message_id), updated AS (UPDATE leads SET status = \u0027replied\u0027, t_first_reply = GREATEST(clock_timestamp(), t_received) WHERE id = (SELECT lead_id FROM args) RETURNING id, client_id, status, t_first_reply), msg AS (INSERT INTO messages (lead_id, direction, channel, author, subject, body, provider, provider_message_id, delivery_status, sent_at) SELECT u.id, \u0027outbound\u0027, \u0027email\u0027, \u0027template\u0027, a.subject, a.body, \u0027smtp\u0027, a.provider_message_id, \u0027sent\u0027, u.t_first_reply FROM updated u CROSS JOIN args a RETURNING lead_id), reply_event AS (INSERT INTO events (lead_id, client_id, workflow, step, status, detail) SELECT u.id, u.client_id, \u0027intake\u0027, \u0027reply_sent\u0027, \u0027ok\u0027, jsonb_build_object(\u0027provider\u0027, \u0027smtp\u0027, \u0027accepted_at\u0027, u.t_first_reply) FROM updated u RETURNING id), complete_event AS (INSERT INTO events (lead_id, client_id, workflow, step, status) SELECT u.id, u.client_id, \u0027intake\u0027, \u0027completed\u0027, \u0027ok\u0027 FROM updated u RETURNING id) SELECT updated.id AS lead_id, updated.status, updated.t_first_reply FROM updated;",
+                                         "options":  {
+                                                         "queryReplacement":  "={{ [$(\u0027Build template reply\u0027).first().json.lead_id, $(\u0027Build template reply\u0027).first().json.reply_subject, $(\u0027Build template reply\u0027).first().json.reply_body, $json.messageId ?? null] }}"
+                                                     }
+                                     },
+                      "id":  "a2-log-success",
+                      "name":  "Record accepted email and SLA",
+                      "type":  "n8n-nodes-base.postgres",
+                      "typeVersion":  2.6,
+                      "position":  [
+                                       2030,
+                                       220
+                                   ],
+                      "credentials":  {
+                                          "postgres":  {
+                                                           "name":  "SELECT YOUR TESTED POSTGRES CREDENTIAL"
+                                                       }
+                                      }
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "executeQuery",
+                                         "query":  "WITH args AS (SELECT $1::uuid AS lead_id, $2::text AS failure), updated AS (UPDATE leads SET status = \u0027failed\u0027 WHERE id = (SELECT lead_id FROM args) AND t_first_reply IS NULL RETURNING id, client_id), failure_event AS (INSERT INTO events (lead_id, client_id, workflow, step, status, error, detail) SELECT u.id, u.client_id, \u0027intake\u0027, \u0027reply_sent\u0027, \u0027fail\u0027, a.failure, jsonb_build_object(\u0027provider\u0027, \u0027smtp\u0027) FROM updated u CROSS JOIN args a RETURNING id) SELECT id AS lead_id, status FROM updated JOIN leads USING (id);",
+                                         "options":  {
+                                                         "queryReplacement":  "={{ [$(\u0027Build template reply\u0027).first().json.lead_id, $json.error?.message ?? $json.error ?? \u0027SMTP send failed\u0027] }}"
+                                                     }
+                                     },
+                      "id":  "a2-log-failure",
+                      "name":  "Record failed email attempt",
+                      "type":  "n8n-nodes-base.postgres",
+                      "typeVersion":  2.6,
+                      "position":  [
+                                       2030,
+                                       420
+                                   ],
+                      "credentials":  {
+                                          "postgres":  {
+                                                           "name":  "SELECT YOUR TESTED POSTGRES CREDENTIAL"
+                                                       }
+                                      }
+                  },
+                  {
+                      "parameters":  {
+                                         "errorType":  "errorMessage",
+                                         "errorMessage":  "={{ \u0027SMTP send failed for Speed-to-Lead lead \u0027 + $(\u0027Build template reply\u0027).first().json.lead_id }}"
+                                     },
+                      "id":  "a2-raise-send-error",
+                      "name":  "Trigger central error workflow",
+                      "type":  "n8n-nodes-base.stopAndError",
+                      "typeVersion":  1,
+                      "position":  [
+                                       2260,
+                                       420
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "executeQuery",
+                                         "query":  "WITH updated AS (UPDATE leads SET reply_mode = \u0027fallback\u0027 WHERE id = $1::uuid AND status = \u0027processing\u0027 RETURNING id, client_id), event_log AS (INSERT INTO events (lead_id, client_id, workflow, step, status, detail) SELECT id, client_id, \u0027intake\u0027, \u0027reply_built\u0027, \u0027ok\u0027, jsonb_build_object(\u0027reply_mode\u0027, \u0027fallback\u0027) FROM updated RETURNING id) SELECT id AS lead_id FROM updated;",
+                                         "options":  {
+                                                         "queryReplacement":  "={{ [$(\u0027Build template reply\u0027).first().json.lead_id] }}"
+                                                     }
+                                     },
+                      "id":  "a2-log-reply-built",
+                      "name":  "Record template reply built",
+                      "type":  "n8n-nodes-base.postgres",
+                      "typeVersion":  2.6,
+                      "position":  [
+                                       1800,
+                                       180
+                                   ],
+                      "credentials":  {
+                                          "postgres":  {
+                                                           "name":  "SELECT YOUR TESTED POSTGRES CREDENTIAL"
+                                                       }
+                                      }
+                  }
+              ],
+    "connections":  {
+                        "Public Lead Form Webhook":  {
+                                                         "main":  [
+                                                                      [
+                                                                          {
+                                                                              "node":  "Normalize and validate form",
+                                                                              "type":  "main",
+                                                                              "index":  0
+                                                                          }
+                                                                      ]
+                                                                  ]
+                                                     },
+                        "Normalize and validate form":  {
+                                                            "main":  [
+                                                                         [
+                                                                             {
+                                                                                 "node":  "Form data valid?",
+                                                                                 "type":  "main",
+                                                                                 "index":  0
+                                                                             }
+                                                                         ]
+                                                                     ]
+                                                        },
+                        "Form data valid?":  {
+                                                 "main":  [
+                                                              [
+                                                                  {
+                                                                      "node":  "Insert lead and inbound audit",
+                                                                      "type":  "main",
+                                                                      "index":  0
+                                                                  }
+                                                              ],
+                                                              [
+                                                                  {
+                                                                      "node":  "Return validation message",
+                                                                      "type":  "main",
+                                                                      "index":  0
+                                                                  }
+                                                              ]
+                                                          ]
+                                             },
+                        "Insert lead and inbound audit":  {
+                                                              "main":  [
+                                                                           [
+                                                                               {
+                                                                                   "node":  "Acknowledge stored request",
+                                                                                   "type":  "main",
+                                                                                   "index":  0
+                                                                               }
+                                                                           ]
+                                                                       ]
+                                                          },
+                        "Acknowledge stored request":  {
+                                                           "main":  [
+                                                                        [
+                                                                            {
+                                                                                "node":  "Apply guards and score lead",
+                                                                                "type":  "main",
+                                                                                "index":  0
+                                                                            }
+                                                                        ]
+                                                                    ]
+                                                       },
+                        "Apply guards and score lead":  {
+                                                            "main":  [
+                                                                         [
+                                                                             {
+                                                                                 "node":  "Build template reply",
+                                                                                 "type":  "main",
+                                                                                 "index":  0
+                                                                             }
+                                                                         ]
+                                                                     ]
+                                                        },
+                        "Build template reply":  {
+                                                     "main":  [
+                                                                  [
+                                                                      {
+                                                                          "node":  "Record template reply built",
+                                                                          "type":  "main",
+                                                                          "index":  0
+                                                                      }
+                                                                  ]
+                                                              ]
+                                                 },
+                        "Send template email":  {
+                                                    "main":  [
+                                                                 [
+                                                                     {
+                                                                         "node":  "Record accepted email and SLA",
+                                                                         "type":  "main",
+                                                                         "index":  0
+                                                                     }
+                                                                 ],
+                                                                 [
+                                                                     {
+                                                                         "node":  "Record failed email attempt",
+                                                                         "type":  "main",
+                                                                         "index":  0
+                                                                     }
+                                                                 ]
+                                                             ]
+                                                },
+                        "Record failed email attempt":  {
+                                                            "main":  [
+                                                                         [
+                                                                             {
+                                                                                 "node":  "Trigger central error workflow",
+                                                                                 "type":  "main",
+                                                                                 "index":  0
+                                                                             }
+                                                                         ]
+                                                                     ]
+                                                        },
+                        "Record template reply built":  {
+                                                            "main":  [
+                                                                         [
+                                                                             {
+                                                                                 "node":  "Send template email",
+                                                                                 "type":  "main",
+                                                                                 "index":  0
+                                                                             }
+                                                                         ]
+                                                                     ]
+                                                        }
+                    },
+    "active":  false,
+    "settings":  {
+                     "executionOrder":  "v1",
+                     "saveManualExecutions":  true
+                 },
+    "versionId":  "a-public-intake-v2-candidate",
+    "meta":  {
+                 "templateCredsSetupCompleted":  false
+             },
+    "tags":  [
+
+             ]
+}

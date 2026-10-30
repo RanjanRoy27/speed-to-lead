@@ -2,6 +2,14 @@
 
 These exports target n8n 2.35.7 and the schema in `database/001_initial_schema.sql` through `003_security.sql`. Credentials are deliberately unbound: after import, open each credential-using node and select your saved credential. Do not put passwords or API keys in workflow JSON.
 
+## Public form vertical slice candidate
+
+The repo now includes `form/index.html`, `form/config.js`, and `workflow-a-public-intake-v2.json`. This is a separate, inactive candidate for the first form-to-database-to-template-email demo. It does not replace the previously imported A workflow. Read [form/README.md](../form/README.md) and [specs/WF-A-public-intake-v2.md](specs/WF-A-public-intake-v2.md) before importing it.
+
+Import the candidate as a new inactive workflow, select your tested Postgres and Gmail SMTP credentials on its nodes, then set Workflow C as its Error Workflow. Configure `form/config.js` with the candidate's production webhook URL. For a local form served on port 8000, leave Allowed Origins as `http://localhost:8000`; for a hosted form, change it to that exact HTTPS origin. Set `client_config.settings.demo_recipient_allowlist` to the controlled test inbox using the SQL in `form/README.md`. The workflow is demo-only and writes `is_test=true`.
+
+The webhook returns `202` after it has stored or recognized the submission. It does not wait for email delivery. The form shows a received state, and the reply arrives separately. The candidate checks deterministic spam, duplicate person, service area, after-hours, score, and the demo recipient allowlist before sending. A send failure records the lead as failed, then throws to Workflow C for the Telegram alert.
+
 ## Before importing
 
 1. Confirm `database/seed_demo.sql` has been run and `tests/db_smoke_test.sql` prints `ALL DB SMOKE TESTS PASSED`.

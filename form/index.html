@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Request a roofing inspection or repair from ABC Roofing.">
+  <title>Request roofing help | ABC Roofing</title>
+  <style>
+    :root { color-scheme: light; --ink:#17211c; --muted:#59665f; --line:#d7dfd9; --brand:#176b4a; --brand-dark:#105339; --surface:#fff; --page:#f3f6f3; --danger:#a22b25; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--page); color:var(--ink); font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; }
+    main { width:min(100% - 32px, 760px); margin:44px auto; }
+    .card { background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:clamp(22px,5vw,42px); box-shadow:0 16px 44px #10271a0d; }
+    .eyebrow { margin:0 0 8px; color:var(--brand); font-size:.78rem; font-weight:750; letter-spacing:.12em; text-transform:uppercase; }
+    h1 { margin:0; font-size:clamp(1.8rem,5vw,2.6rem); line-height:1.12; }
+    .intro { margin:14px 0 28px; max-width:58ch; color:var(--muted); }
+    form { display:grid; grid-template-columns:1fr 1fr; gap:18px 16px; }
+    .field { min-width:0; }
+    .wide { grid-column:1/-1; }
+    label { display:block; margin-bottom:6px; font-size:.92rem; font-weight:650; }
+    .optional { color:var(--muted); font-weight:400; }
+    input,select,textarea { width:100%; min-height:48px; border:1px solid #aebbb2; border-radius:9px; padding:11px 12px; background:#fff; color:var(--ink); font:inherit; }
+    textarea { min-height:130px; resize:vertical; }
+    input:focus,select:focus,textarea:focus { outline:3px solid #176b4a2b; border-color:var(--brand); }
+    .hint { margin:5px 0 0; color:var(--muted); font-size:.82rem; }
+    .consent { display:flex; gap:10px; align-items:flex-start; color:var(--muted); font-size:.85rem; }
+    .consent input { width:18px; min-height:18px; margin:3px 0 0; flex:0 0 auto; }
+    button { min-height:50px; border:0; border-radius:9px; padding:12px 20px; background:var(--brand); color:white; font:inherit; font-weight:700; cursor:pointer; }
+    button:hover { background:var(--brand-dark); }
+    button:disabled { cursor:wait; opacity:.68; }
+    #status { min-height:1.5em; margin:0; font-weight:650; }
+    #status[data-kind="error"] { color:var(--danger); }
+    #status[data-kind="success"] { color:var(--brand-dark); }
+    .trap { position:absolute!important; left:-10000px!important; width:1px!important; height:1px!important; overflow:hidden!important; }
+    footer { margin:16px 4px; color:var(--muted); font-size:.8rem; text-align:center; }
+    @media (max-width:600px) { main { margin:18px auto; } form { grid-template-columns:1fr; gap:15px; } .wide { grid-column:auto; } }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="card" aria-labelledby="page-title">
+      <p class="eyebrow">ABC Roofing · Brisbane</p>
+      <h1 id="page-title">Tell us what’s happening with your roof</h1>
+      <p class="intro">Share a few details and our team will get back to you by email. If you have an active leak, contact a roofer by phone as well.</p>
+
+      <form id="lead-form">
+        <div class="field">
+          <label for="name">Your name *</label>
+          <input id="name" name="name" autocomplete="name" maxlength="160" required>
+        </div>
+        <div class="field">
+          <label for="email">Email address *</label>
+          <input id="email" name="email" type="email" autocomplete="email" maxlength="320" required>
+        </div>
+        <div class="field">
+          <label for="phone">Phone <span class="optional">(optional)</span></label>
+          <input id="phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" maxlength="40" placeholder="0400 000 000">
+        </div>
+        <div class="field">
+          <label for="service">What do you need help with? *</label>
+          <select id="service" name="service" required>
+            <option value="">Choose a service</option>
+            <option>roof repair</option>
+            <option>roof replacement</option>
+            <option>roof inspection</option>
+            <option>gutter repair</option>
+            <option>leak detection</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="postcode">Postcode *</label>
+          <input id="postcode" name="postcode" inputmode="numeric" autocomplete="postal-code" maxlength="12" placeholder="4101" required>
+        </div>
+        <div class="field">
+          <label for="urgency">When do you need help? *</label>
+          <select id="urgency" name="urgency" required>
+            <option value="">Choose timing</option>
+            <option value="emergency">As soon as possible / emergency</option>
+            <option value="this_week">This week</option>
+            <option value="flexible">I’m flexible</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="property_type">Property type <span class="optional">(optional)</span></label>
+          <select id="property_type" name="property_type">
+            <option value="">Choose one</option>
+            <option>house</option>
+            <option>townhouse</option>
+            <option>unit</option>
+            <option>commercial</option>
+            <option>other</option>
+          </select>
+        </div>
+        <div class="field wide">
+          <label for="message">Describe the work you need <span class="optional">(optional)</span></label>
+          <textarea id="message" name="message" maxlength="4000" placeholder="What have you noticed? Where is the issue? Please don’t include payment details or other sensitive information."></textarea>
+        </div>
+        <div class="trap" aria-hidden="true">
+          <label for="website">Leave this field empty</label>
+          <input id="website" name="website" tabindex="-1" autocomplete="off">
+        </div>
+        <div class="wide consent">
+          <input id="consent" name="consent" type="checkbox" required>
+          <label for="consent">I agree that ABC Roofing can use these details to respond to my request. *</label>
+        </div>
+        <p id="status" class="wide" role="status" aria-live="polite"></p>
+        <div class="wide"><button id="submit-button" type="submit">Send my request</button></div>
+      </form>
+    </section>
+    <footer>Demo form. Submitting means your request is recorded; the email reply may arrive separately.</footer>
+  </main>
+  <script src="config.js"></script>
+  <script>
+    (() => {
+      const form = document.querySelector('#lead-form');
+      const button = document.querySelector('#submit-button');
+      const status = document.querySelector('#status');
+      let pendingSubmissionId = null;
+
+      function newId() {
+        if (globalThis.crypto && crypto.randomUUID) return crypto.randomUUID();
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+          const r = Math.random() * 16 | 0;
+          return (c === 'x' ? r : (r & 3 | 8)).toString(16);
+        });
+      }
+
+      function show(message, kind) {
+        status.textContent = message;
+        status.dataset.kind = kind || '';
+      }
+
+      form.addEventListener('submit', async event => {
+        event.preventDefault();
+        if (!form.reportValidity()) return;
+        const config = window.SPEED_TO_LEAD_CONFIG || {};
+        if (!config.webhookUrl || config.webhookUrl.includes('YOUR-N8N-HOST')) {
+          show('This form is not connected yet. Please contact the site owner.', 'error');
+          return;
+        }
+
+        const data = new FormData(form);
+        const payload = {
+          submission_id: pendingSubmissionId || (pendingSubmissionId = newId()),
+          name: String(data.get('name') || '').trim(),
+          email: String(data.get('email') || '').trim(),
+          phone: String(data.get('phone') || '').trim(),
+          service: String(data.get('service') || '').trim(),
+          postcode: String(data.get('postcode') || '').trim(),
+          urgency: String(data.get('urgency') || 'unknown'),
+          property_type: String(data.get('property_type') || '').trim(),
+          message: String(data.get('message') || '').trim(),
+          consent: data.get('consent') === 'on',
+          honeypot: String(data.get('website') || '')
+        };
+
+        button.disabled = true;
+        show('Sending your request…', '');
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 20000);
+        try {
+          const response = await fetch(config.webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: controller.signal
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok || result.accepted !== true) {
+            throw new Error(result.message || 'The request could not be accepted. Please try again.');
+          }
+          pendingSubmissionId = null;
+          form.reset();
+          show('Request received. If it meets the demo intake rules, we’ll email a reply to the address you provided.', 'success');
+        } catch (error) {
+          const message = error.name === 'AbortError'
+            ? 'The request is taking too long. Please retry; we’ll safely ignore a duplicate submission.'
+            : (error.message || 'Could not connect. Please check your connection and retry.');
+          show(message, 'error');
+        } finally {
+          clearTimeout(timeout);
+          button.disabled = false;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

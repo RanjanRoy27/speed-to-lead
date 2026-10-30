@@ -62,7 +62,7 @@ Normalize rules: email lowercased and trimmed; phone to E.164 using the client's
 Guard order (stop at the first hit; every guard writes an event):
 
 1. **Idempotency** - `INSERT ... ON CONFLICT (client_id, source, external_id) DO NOTHING RETURNING id`. No row returned -> log `idempotent_skip`, stop. No reply, no second lead.
-2. **Spam (deterministic)** - honeypot field filled, more than 2 URLs in the message, or a keyword blocklist hit -> `rejected / spam`.
+2. **Spam (deterministic)** - honeypot field filled, more than 2 URLs in the message, or a keyword blocklist hit -> `rejected / spam`. The initial demo blocklist is `seo`, `backlink`, `guest post`, and `lead generation`; keep it explicit in the intake workflow and review it before changing it.
 3. **Duplicate person** - same `client_id` + `dedupe_key` in the last 24 hours on a non-rejected lead -> `rejected / duplicate`, set `duplicate_of`, append the new text as an inbound message on the original lead, no reply.
 4. **Service area** - `postcode_area` not NULL and not in `service_areas` -> `rejected / out_of_area`. `postcode_area` NULL (missing or invalid) is **not** a rejection: it adds `postcode` to `missing_fields`.
 5. **After-hours flag** - evaluate `t_received` in the client's timezone against `business_hours`; set `is_after_hours`. Never rejects. When `is_test = true`, the clock may be overridden by `raw_payload._test.clock_local` so the test suite doesn't depend on the time of day (`t_received` itself stays real, so latency numbers stay honest). Ignore `_test` entirely when `is_test = false`.
@@ -135,7 +135,8 @@ Every column is written by exactly one place, so debugging means looking at one 
 | `is_after_hours` | A | `guard_hours` |
 | `missing_fields, score, score_reason` | A | `scored` |
 | `status` | A, B, C | per section 1 |
-| `reply_mode` | A | `reply_built` |
+| `reply_mode='none'` | A | `lead_rejected` (no outbound reply will be sent) |
+| `reply_mode='ai'|'fallback'` | A | `reply_built` |
 | `t_first_reply` | A | `reply_sent` |
 | `t_booked` | B | `booking_saved` |
 | `crm_provider, crm_contact_id, crm_deal_id, crm_status, crm_synced_at` | A (create) / B (stage) | `crm_sync` / `crm_stage_updated` |

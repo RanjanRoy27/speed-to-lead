@@ -15,13 +15,19 @@ database/
   seed_demo.sql               3 fictional clients: AU roofing, GB solar, CA cleaning
 docs/contracts.md             state machine, guard + scoring rules, LLM contract, column write-map, metrics
 prompts/lead-qualification.md prompt lq-v1.0 + JSON schema + post-call checks
+form/                         public ABC Roofing demo form + local/static-host setup
 tests/
   db_smoke_test.sql           schema assertions; rolls back; prints ALL DB SMOKE TESTS PASSED
   synthetic-leads.json        26 cases (T001-T026) with expected outcomes
 n8n/                          exported workflow JSON goes here, one file per workflow
+  workflow-a-public-intake-v2.json  inactive form -> DB -> template email candidate
+  specs/WF-A-public-intake-v2.md    node-by-node behavior and DB write map
+  README-setup.md                  import and n8n configuration guide
 ```
 
 ## Quick start (Phase 1)
+
+For the current demo-first sequence, agent work boundaries, decisions needed, and operator checklist, see [docs/build-plan.md](docs/build-plan.md). It supersedes the phase ordering below where it differs; the contracts in `docs/contracts.md` remain the source of truth for workflow behavior.
 
 ```bash
 export DATABASE_URL="postgresql://USER:PASS@HOST/DB?sslmode=require"   # Neon or Supabase direct connection
